@@ -110,22 +110,38 @@ export default function App() {
     }
   };
 
-  // Simulation de l'inscription à la Newsletter / Rappel
-  const handleEmailSubmit = (e) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setEmailStatus("Inscription réussie ! Vous recevrez votre récapitulatif mensuel. 🍿");
-    setTimeout(() => setEmailStatus(""), 4000);
-    setEmail("");
-  };
+// Vrai envoi de l'inscription et des likes vers Formspree
+const handleEmailSubmit = async (e) => {
+  e.preventDefault();
+  if (!email.trim()) return;
 
-  const toggleReveal = (id) => setRevealed((prev) => ({ ...prev, [id]: !prev[id] }));
-  const revealAll = () => {
-    const all = {};
-    paragraphs.forEach((p) => { if (p.spoiler) all[p.id] = true; });
-    setRevealed(all);
-  };
-  const hideAll = () => setRevealed({});
+  setEmailStatus("Inscription en cours...");
+
+  try {
+    const response = await fetch("https://formspree.io/f/mwvzlwwz", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        email: email.trim(),
+        films_sautegardes: likedMovies.join(", ") || "Aucun film aimé pour le moment"
+      })
+    });
+
+    if (response.ok) {
+      setEmailStatus("Inscription réussie ! Vous recevrez votre récapitulatif mensuel. 🍿");
+      setEmail("");
+    } else {
+      throw new Error();
+    }
+  } catch (err) {
+    setEmailStatus("❌ Une erreur est survenue lors de l'inscription. Réessayez.");
+  }
+
+  setTimeout(() => setEmailStatus(""), 4000);
+};
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'Georgia',serif", color: "#e8e0d0" }}>
