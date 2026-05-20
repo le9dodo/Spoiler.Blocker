@@ -135,7 +135,7 @@ export default function App() {
             onMouseEnter={(e) => { e.currentTarget.style.background = "#cc2b37"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "#e63946"; e.currentTarget.style.transform = "translateY(0)"; }}
           >
-            ☕ OFFRIR UN CAFÉ
+            ☕ DONATION
           </a>
         </div>
       </div>
