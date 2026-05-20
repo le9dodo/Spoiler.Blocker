@@ -112,7 +112,7 @@ export default function App() {
           </div>
 
           <a 
-            href="https://buymeacoffee.com/alubac51j" 
+            href="https://buymeacoffee.com/le9dodo" 
             target="_blank" 
             rel="noopener noreferrer"
             style={{ 
