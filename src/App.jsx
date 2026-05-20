@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 🔴 METTEZ VOTRE CLÉ API ICI :
+// 🔴 CONFIGURATION DE LA CLÉ SÉCURISÉE (pour l'étape Vercel)
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const SPOILER_KEYWORDS = [
@@ -14,18 +14,20 @@ const SPOILER_KEYWORDS = [
 ];
 
 async function fetchAIContent(title) {
-  if (GEMINI_API_KEY === "VOTRE_CLE_API_GEMINI" || !GEMINI_API_KEY) {
-    throw new Error("Veuillez configurer votre clé API Gemini à la ligne 5 du code.");
+  if (!GEMINI_API_KEY) {
+    throw new Error("Veuillez configurer votre clé API Gemini (Variable d'environnement manquante).");
   }
   
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `Fais un résumé très COURT, global et condensé du film ou de la série "${title}".
-Règles strictes :
-- Découpe le résumé et fait en sorte que cela fasse 4 lignes par paragraphe).
-- Le style doit être général et aller à l'essentiel sans trop de détails secondaires et sans spoil, surtout pas d'indice sur la fin ou sur le dénouement majeur ect vraiment rester vague mais donner envie..
-- Ne mets aucun titre, aucune introduction, pas de gras.`;
+Règles strictes à respecter :
+- Rédige exactement 4 paragraphes distincts.
+- Chaque paragraphe doit être très court et faire environ 3 à 4 lignes maximum.
+- Le style doit être général, mystérieux et accrocheur pour donner envie de regarder.
+- Interdiction absolue de mettre des indices sur la fin, le dénouement majeur, les trahisons ou les twists. Reste vague.
+- Ne mets aucun titre, aucune introduction, pas de gras, pas de listes. Sépare juste les paragraphes par un saut de ligne.`;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
@@ -65,7 +67,7 @@ export default function App() {
         .map((p) => p.trim())
         .filter((p) => p.length > 15);
 
-      if (rawParagraphs.length === 0) throw new Error("Format invalide.");
+      if (rawParagraphs.length === 0) throw new Error("Format de réponse invalide.");
 
       const processed = rawParagraphs.map((p, i) => ({
         id: i,
@@ -95,18 +97,46 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'Georgia',serif", color: "#e8e0d0" }}>
-      <div style={{ background: "#111118", borderBottom: "1px solid #2a2a3a", padding: "2.5rem 2rem 2rem" }}>
-        <div style={{ maxWidth: "860px", margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
-            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#e63946" }} />
-            <span style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", fontFamily: "monospace" }}>Spoiler Protection System</span>
+      
+      {/* EN-TÊTE CORRIGÉ AVEC BOUTON DE DONATION INTEGRÉ */}
+      <div style={{ background: "#111118", borderBottom: "1px solid #2a2a3a", padding: "2.5rem 2rem" }}>
+        <div style={{ maxWidth: "860px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "20px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#e63946" }} />
+              <span style={{ fontSize: "11px", letterSpacing: "3px", color: "#888", textTransform: "uppercase", fontFamily: "monospace" }}>Spoiler Protection System</span>
+            </div>
+            <h1 style={{ fontSize: "2.8rem", fontWeight: "400", margin: 0, color: "#f5f0e8" }}>
+              Spoiler<span style={{ color: "#e63946" }}>.</span>Blocker
+            </h1>
           </div>
-          <h1 style={{ fontSize: "2.8rem", fontWeight: "400", margin: "0 0 6px", color: "#f5f0e8" }}>
-            Spoiler<span style={{ color: "#e63946" }}>.</span>Blocker
-          </h1>
-          <p style={{ fontSize: "15px", color: "#666", margin: 0, fontFamily: "monospace" }}>
-            
-          </p>
+
+          <a 
+            href="https://buymeacoffee.com/alubac51j" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ 
+              background: "#e63946", 
+              borderRadius: "6px", 
+              color: "#ffffff", 
+              padding: "10px 18px", 
+              fontFamily: "monospace", 
+              fontSize: "13px", 
+              fontWeight: "bold",
+              textDecoration: "none",
+              letterSpacing: "1px", 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "8px", 
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(230, 57, 70, 0.2)",
+              transition: "transform 0.2s, background-color 0.2s"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#cc2b37"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#e63946"; e.currentTarget.style.transform = "translateY(0)"; }}
+          >
+            ☕ OFFRIR UN CAFÉ
+          </a>
         </div>
       </div>
 
