@@ -43,6 +43,10 @@ export default function App() {
   const [error, setError] = useState("");
   const [searchedTitle, setSearchedTitle] = useState("");
   const [stats, setStats] = useState(null);
+  const [likedMovies, setLikedMovies] = useState([]); // Liste des films aimés
+  const [email, setEmail] = useState(""); // Email de l'utilisateur
+  const [emailStatus, setEmailStatus] = useState(""); // Message de succès pour l'email
+  const [recommendation, setRecommendation] = useState(""); // Film similaire proposé par l'IA
 
   const isSpoiler = (text) => {
     const cleanText = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, " ");
@@ -57,10 +61,19 @@ export default function App() {
     setParagraphs([]);
     setRevealed({});
     setStats(null);
+    setRecommendation(""); // Réinitialise la recommandation
     setLoadingMsg("Génération en cours…");
 
     try {
       const rawText = await fetchAIContent(title.trim());
+
+      // 💡 Demande à l'IA une proposition similaire à la volée
+      const recPrompt = `Donne-moi uniquement le titre d'un seul film ou d'une seule série très similaire à "${title.trim()}". Ne fais pas de phrase, écris juste le titre. Exemple: Inception`;
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const recResult = await model.generateContent(recPrompt);
+      const recResponse = await recResult.response;
+      setRecommendation(recResponse.text().trim());
 
       const rawParagraphs = rawText
         .split("\n")
@@ -87,6 +100,25 @@ export default function App() {
     }
   };
 
+  // Ajouter ou retirer un film des favoris
+  const toggleLike = () => {
+    if (!searchedTitle) return;
+    if (likedMovies.includes(searchedTitle)) {
+      setLikedMovies(likedMovies.filter(m => m !== searchedTitle));
+    } else {
+      setLikedMovies([...likedMovies, searchedTitle]);
+    }
+  };
+
+  // Simulation de l'inscription à la Newsletter / Rappel
+  const handleEmailSubmit = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setEmailStatus("Inscription réussie ! Vous recevrez votre récapitulatif mensuel. 🍿");
+    setTimeout(() => setEmailStatus(""), 4000);
+    setEmail("");
+  };
+
   const toggleReveal = (id) => setRevealed((prev) => ({ ...prev, [id]: !prev[id] }));
   const revealAll = () => {
     const all = {};
@@ -98,9 +130,9 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'Georgia',serif", color: "#e8e0d0" }}>
       
-      {/* EN-TÊTE CORRIGÉ AVEC BOUTON DE DONATION INTEGRÉ */}
+      {/* EN-TÊTE AVEC BOUTON DE DONATION */}
       <div style={{ background: "#111118", borderBottom: "1px solid #2a2a3a", padding: "2.5rem 2rem" }}>
-        <div style={{ maxWidth: "860px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "20px" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "20px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
               <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#e63946" }} />
@@ -112,7 +144,7 @@ export default function App() {
           </div>
 
           <a 
-            href="https://buymeacoffee.com/le9dodo" 
+            href="https://buymeacoffee.com/alubac51j" 
             target="_blank" 
             rel="noopener noreferrer"
             style={{ 
@@ -135,55 +167,133 @@ export default function App() {
             onMouseEnter={(e) => { e.currentTarget.style.background = "#cc2b37"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "#e63946"; e.currentTarget.style.transform = "translateY(0)"; }}
           >
-            ☕ DONATION
+            ☕ OFFRIR UN CAFÉ
           </a>
         </div>
       </div>
 
-      <div style={{ maxWidth: "860px", margin: "0 auto", padding: "2.5rem 2rem" }}>
-        <div style={{ display: "flex", gap: "12px", marginBottom: "2rem" }}>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && fetchContent()}
-            placeholder="Entrez un film ou une série..."
-            style={{ flex: 1, background: "#111118", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "14px", fontSize: "16px", color: "#e8e0d0", fontFamily: "monospace", outline: "none" }}
-          />
-          <button onClick={fetchContent} disabled={loading || !title.trim()} style={{ background: "#e63946", color: "#fff", border: "none", borderRadius: "6px", padding: "14px 24px", fontFamily: "monospace", cursor: "pointer" }}>
-            {loading ? "SCAN…" : "SCANNER"}
-          </button>
+      {/* DISPOSITION EN DEUX COLONNES (GAUCHE / DROITE) */}
+      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2.5rem 2rem", display: "flex", gap: "40px", flexWrap: "wrap" }}>
+        
+        {/* COLONNE PRINCIPALE (GAUCHE - ZONE DE RECHERCHE ET RÉSULTATS) */}
+        <div style={{ flex: 3, minWidth: "300px" }}>
+          
+          {/* Barre de recherche */}
+          <div style={{ display: "flex", gap: "12px", marginBottom: "1rem" }}>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && fetchContent()}
+              placeholder="Entrez un film ou une série..."
+              style={{ flex: 1, background: "#111118", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "14px", fontSize: "16px", color: "#e8e0d0", fontFamily: "monospace", outline: "none" }}
+            />
+            <button onClick={fetchContent} disabled={loading || !title.trim()} style={{ background: "#e63946", color: "#fff", border: "none", borderRadius: "6px", padding: "14px 24px", fontFamily: "monospace", cursor: "pointer" }}>
+              {loading ? "SCAN…" : "SCANNER"}
+            </button>
+          </div>
+
+          {/* RECTANGLE DE RECOMMANDATION SIMILAIRE IA */}
+          {recommendation && (
+            <div style={{ background: "rgba(230, 57, 70, 0.05)", border: "1px dashed #e63946", borderRadius: "6px", padding: "12px 16px", marginBottom: "2rem", fontFamily: "monospace", fontSize: "14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>🍿 Proposition similaire : <strong style={{ color: "#f5f0e8" }}>{recommendation}</strong></span>
+              <button onClick={() => { setTitle(recommendation); }} style={{ background: "transparent", border: "none", color: "#e63946", cursor: "pointer", textDecoration: "underline", fontFamily: "monospace" }}>Scanner ce film</button>
+            </div>
+          )}
+
+          {error && <div style={{ background: "#1a0a0a", border: "1px solid #5a1a1a", borderRadius: "6px", padding: "14px", color: "#e66", fontFamily: "monospace", marginBottom: "2rem" }}>⚠ {error}</div>}
+
+          {loading && (
+            <div style={{ textAlign: "center", padding: "4rem 0", color: "#888", fontFamily: "monospace" }}>
+              <div style={{ fontSize: "28px", marginBottom: "12px", display: "inline-block", animation: "spin 1s linear infinite" }}>◌</div>
+              <p style={{ fontSize: "14px", letterSpacing: "1px" }}>{loadingMsg}</p>
+              <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+            </div>
+          )}
+
+          {/* Barre de statistiques + BOUTON LIKE COEUR */}
+          {stats && paragraphs.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#111118", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "14px 18px", marginBottom: "2rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                <div>
+                  <span style={{ color: "#888", fontFamily: "monospace" }}>{searchedTitle.toUpperCase()} — </span>
+                  <span style={{ color: "#e63946", fontFamily: "monospace" }}>{stats.spoilers} bloc(s) masqué(s)</span>
+                </div>
+                {/* Bouton Coeur dynamique */}
+                <button onClick={toggleLike} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", transition: "transform 0.2s", outline: "none" }} onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.8)"} onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}>
+                  {likedMovies.includes(searchedTitle) ? "❤️" : "🤍"}
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button onClick={revealAll} style={{ background: "transparent", border: "1px solid #3a3a4a", color: "#888", padding: "6px 14px", fontFamily: "monospace", fontSize: "12px", cursor: "pointer" }}>TOUT RÉVÉLER</button>
+                <button onClick={hideAll} style={{ background: "transparent", border: "1px solid #3a3a4a", color: "#888", padding: "6px 14px", fontFamily: "monospace", fontSize: "12px", cursor: "pointer" }}>TOUT MASQUER</button>
+              </div>
+            </div>
+          )}
+
+          {/* Blocs de paragraphes de résumé */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {paragraphs.map((para) => (
+              <ParagraphBlock key={para.id} para={para} revealed={!!revealed[para.id]} onToggle={() => toggleReveal(para.id)} />
+            ))}
+          </div>
         </div>
 
-        {error && <div style={{ background: "#1a0a0a", border: "1px solid #5a1a1a", borderRadius: "6px", padding: "14px", color: "#e66", fontFamily: "monospace", marginBottom: "2rem" }}>⚠ {error}</div>}
-
-        {loading && (
-          <div style={{ textAlign: "center", padding: "4rem 0", color: "#888", fontFamily: "monospace" }}>
-            <div style={{ fontSize: "28px", marginBottom: "12px", display: "inline-block", animation: "spin 1s linear infinite" }}>◌</div>
-            <p style={{ fontSize: "14px", letterSpacing: "1px" }}>{loadingMsg}</p>
-            <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+        {/* COLONNE LATÉRALE (DROITE - FAVORIS ET NEWSLETTER) */}
+        <div style={{ flex: 1, minWidth: "280px", display: "flex", flexDirection: "column", gap: "20px" }}>
+          
+          {/* BLOC : DÉFILÉ AUTOMATIQUE DES FILMS LIKÉS */}
+          <div style={{ background: "#111118", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "20px", fontFamily: "monospace" }}>
+            <h3 style={{ color: "#f5f0e8", marginTop: 0, fontSize: "14px", letterSpacing: "1px", borderBottom: "1px solid #2a2a3a", paddingBottom: "10px" }}>❤️ FILMS AIMÉS</h3>
+            {likedMovies.length === 0 ? (
+              <p style={{ color: "#666", fontSize: "12px", margin: "10px 0 0" }}>Aucun film aimé pour le moment.</p>
+            ) : (
+              <div style={{ maxHeight: "160px", overflow: "hidden", position: "relative", marginTop: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", animation: likedMovies.length > 3 ? "scrollUp 12s linear infinite" : "none" }}>
+                  {likedMovies.map((movie, index) => (
+                    <div key={index} style={{ background: "#0a0a0f", padding: "8px 12px", borderRadius: "4px", border: "1px solid #1a1a2a", color: "#c8c0b0", fontSize: "13px" }}>
+                      🎬 {movie}
+                    </div>
+                  ))}
+                  {likedMovies.length > 3 && likedMovies.map((movie, index) => (
+                    <div key={`dup-${index}`} style={{ background: "#0a0a0f", padding: "8px 12px", borderRadius: "4px", border: "1px solid #1a1a2a", color: "#c8c0b0", fontSize: "13px" }}>
+                      🎬 {movie}
+                    </div>
+                  ))}
+                </div>
+                <style>{`
+                  @keyframes scrollUp {
+                    0% { transform: translateY(0); }
+                    100% { transform: translateY(-50%); }
+                  }
+                `}</style>
+              </div>
+            )}
           </div>
-        )}
 
-        {stats && paragraphs.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#111118", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "14px 18px", marginBottom: "2rem" }}>
-            <div>
-              <span style={{ color: "#888", fontFamily: "monospace" }}>{searchedTitle.toUpperCase()} — </span>
-              <span style={{ color: "#e63946", fontFamily: "monospace" }}>{stats.spoilers} bloc(s) masqué(s)</span>
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={revealAll} style={{ background: "transparent", border: "1px solid #3a3a4a", color: "#888", padding: "6px 14px", fontFamily: "monospace", fontSize: "12px", cursor: "pointer" }}>TOUT RÉVÉLER</button>
-              <button onClick={hideAll} style={{ background: "transparent", border: "1px solid #3a3a4a", color: "#888", padding: "6px 14px", fontFamily: "monospace", fontSize: "12px", cursor: "pointer" }}>TOUT MASQUER</button>
-            </div>
+          {/* BLOC : FORMULAIRE RAPPEL EMAIL */}
+          <div style={{ background: "#111118", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "20px", fontFamily: "monospace" }}>
+            <h3 style={{ color: "#f5f0e8", marginTop: 0, fontSize: "14px", letterSpacing: "1px" }}>📅 RAPPEL MENSUEL</h3>
+            <p style={{ color: "#888", fontSize: "12px", lineHeight: "1.5" }}>Recevez chaque mois la liste de vos films sauvegardés à regarder absolument.</p>
+            <form onSubmit={handleEmailSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Votre adresse email..."
+                style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: "4px", padding: "10px", color: "#e8e0d0", fontSize: "12px", outline: "none" }}
+              />
+              <button type="submit" style={{ background: "#e63946", color: "#fff", border: "none", borderRadius: "4px", padding: "10px", fontSize: "12px", fontWeight: "bold", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "#cc2b37"} onMouseLeave={(e) => e.currentTarget.style.background = "#e63946"}>
+                M'INSCRIRE
+              </button>
+            </form>
+            {emailStatus && <p style={{ color: "#4caf50", fontSize: "11px", marginTop: "10px", lineHeight: "1.4" }}>{emailStatus}</p>}
           </div>
-        )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {paragraphs.map((para) => (
-            <ParagraphBlock key={para.id} para={para} revealed={!!revealed[para.id]} onToggle={() => toggleReveal(para.id)} />
-          ))}
         </div>
       </div>
+
     </div>
   );
 }
