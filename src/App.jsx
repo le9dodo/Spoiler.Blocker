@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 🔴 CONFIGURATION DE LA CLÉ SÉCURISÉE (pour l'étape Vercel)
+// 🔴 CONFIGURATION DE LA CLÉ SÉCURISÉE
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const SPOILER_KEYWORDS = [
@@ -27,11 +27,12 @@ Règles strictes à respecter :
 - Chaque paragraphe doit être très court et faire environ 3 à 4 lignes maximum.
 - Le style doit être général, mystérieux et accrocheur pour donner envie de regarder.
 - Interdiction absolue de mettre des indices sur la fin, le dénouement majeur, les trahisons ou les twists. Reste vague.
-- Ne mets aucun titre, aucune introduction, pas de gras, pas de listes. Sépare juste les paragraphes par un saut de ligne.`;
+- Ne mets aucun titre, aucune introduction, pas de gras, pas de listes. Sépare juste les paragraphes par un saut de ligne.
+- TOUT À LA FIN, après tes 4 paragraphes, ajoute une ligne bonus qui commence STRICTEMENT par "REC:" suivi uniquement du titre d'un seul film ou d'une seule série très similaire. Exemple: REC: Inception`;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
-  return response.text();
+  return response.text() || "";
 }
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
   const [recommendation, setRecommendation] = useState(""); // Film similaire proposé par l'IA
 
   const isSpoiler = (text) => {
+    if (!text) return false;
     const cleanText = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, " ");
     const words = cleanText.split(/\s+/);
     return SPOILER_KEYWORDS.some((kw) => words.includes(kw));
@@ -61,26 +63,31 @@ export default function App() {
     setParagraphs([]);
     setRevealed({});
     setStats(null);
-    setRecommendation(""); // Réinitialise la recommandation
+    setRecommendation(""); 
     setLoadingMsg("Génération en cours…");
 
     try {
       const rawText = await fetchAIContent(title.trim());
 
-      // 💡 Demande à l'IA une proposition similaire à la volée
-      const recPrompt = `Donne-moi uniquement le titre d'un seul film ou d'une seule série très similaire à "${title.trim()}". Ne fais pas de phrase, écris juste le titre. Exemple: Inception`;
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const recResult = await model.generateContent(recPrompt);
-      const recResponse = await recResult.response;
-      setRecommendation(recResponse.text().trim());
+      // Découper les lignes reçues en évitant les crashs
+      let lines = (rawText || "").split("\n").map((p) => p.trim());
 
-      const rawParagraphs = rawText
-        .split("\n")
-        .map((p) => p.trim())
-        .filter((p) => p.length > 15);
+      // Extraction sécurisée de la recommandation
+      const recLine = lines.find(l => l && l.toUpperCase().startsWith("REC:"));
+      if (recLine) {
+        // Enlève "REC:" ou "rec:" peu importe la casse
+        const cleanRec = recLine.replace(/^REC:\s*/i, "").trim();
+        setRecommendation(cleanRec);
+        // On nettoie les lignes du résumé pour enlever la recommandation
+        lines = lines.filter(l => l !== recLine);
+      }
 
-      if (rawParagraphs.length === 0) throw new Error("Format de réponse invalide.");
+      // Filtrer les paragraphes vides ou trop courts
+      const rawParagraphs = lines.filter((p) => p && p.length > 15);
+
+      if (rawParagraphs.length === 0) {
+        throw new Error("L'IA a renvoyé un format vide. Veuillez réessayer.");
+      }
 
       const processed = rawParagraphs.map((p, i) => ({
         id: i,
@@ -93,7 +100,7 @@ export default function App() {
       setSearchedTitle(title.trim());
       setStats({ total: processed.length, spoilers: spoilerCount });
     } catch (e) {
-      setError(e.message || "Une erreur est survenue.");
+      setError(e.message || "Une erreur est survenue lors de la génération.");
     } finally {
       setLoading(false);
       setLoadingMsg("");
@@ -110,38 +117,46 @@ export default function App() {
     }
   };
 
-// Vrai envoi de l'inscription et des likes vers Formspree
-const handleEmailSubmit = async (e) => {
-  e.preventDefault();
-  if (!email.trim()) return;
+  // Vrai envoi de l'inscription et des likes vers Formspree
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
 
-  setEmailStatus("Inscription en cours...");
+    setEmailStatus("Inscription en cours...");
 
-  try {
-    const response = await fetch("https://formspree.io/f/mwvzlwwz", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        email: email.trim(),
-        films_sautegardes: likedMovies.join(", ") || "Aucun film aimé pour le moment"
-      })
-    });
+    try {
+      const response = await fetch("https://formspree.io/f/mwvzlwwz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          films_sauvegardes: likedMovies.join(", ") || "Aucun film aimé pour le moment"
+        })
+      });
 
-    if (response.ok) {
-      setEmailStatus("Inscription réussie ! Vous recevrez votre récapitulatif mensuel. 🍿");
-      setEmail("");
-    } else {
-      throw new Error();
+      if (response.ok) {
+        setEmailStatus("Inscription réussie ! Vous recevrez votre récapitulatif mensuel. 🍿");
+        setEmail("");
+      } else {
+        throw new Error();
+      }
+    } catch (err) {
+      setEmailStatus("❌ Une erreur est survenue lors de l'inscription. Réessayez.");
     }
-  } catch (err) {
-    setEmailStatus("❌ Une erreur est survenue lors de l'inscription. Réessayez.");
-  }
 
-  setTimeout(() => setEmailStatus(""), 4000);
-};
+    setTimeout(() => setEmailStatus(""), 4000);
+  };
+
+  const toggleReveal = (id) => setRevealed((prev) => ({ ...prev, [id]: !prev[id] }));
+  const revealAll = () => {
+    const all = {};
+    paragraphs.forEach((p) => { if (p.spoiler) all[p.id] = true; });
+    setRevealed(all);
+  };
+  const hideAll = () => setRevealed({});
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'Georgia',serif", color: "#e8e0d0" }}>
@@ -188,7 +203,7 @@ const handleEmailSubmit = async (e) => {
         </div>
       </div>
 
-      {/* DISPOSITION EN DEUX COLONNES (GAUCHE / DROITE) */}
+      {/* DISPOSITION EN DEUX COLONNES */}
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2.5rem 2rem", display: "flex", gap: "40px", flexWrap: "wrap" }}>
         
         {/* COLONNE PRINCIPALE (GAUCHE - ZONE DE RECHERCHE ET RÉSULTATS) */}
@@ -315,6 +330,8 @@ const handleEmailSubmit = async (e) => {
 }
 
 function ParagraphBlock({ para, revealed, onToggle }) {
+  if (!para || !para.text) return null;
+
   if (!para.spoiler) {
     return <div style={{ padding: "18px 20px", background: "#0f0f18", border: "1px solid #1a1a2a", borderRadius: "6px", lineHeight: "1.8", fontSize: "15.5px", color: "#c8c0b0" }}>{para.text}</div>;
   }
